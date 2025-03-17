@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, React } from "react";
 import { Buffer } from "buffer";
+import { api_url } from "../config";
 
 import CanvasSelector from "./CanvasSelector.tsx";
 
@@ -26,7 +27,7 @@ const Canvas : React.FC = () => {
         context.fillStyle = "black";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        const response = await fetch("/api/download?id=test", {
+        const response = await fetch(`${api_url}/api/download?id=test`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
@@ -100,7 +101,7 @@ const Canvas : React.FC = () => {
                 }
                 console.log(image_data_16);
                 let b64 = Buffer.from(image_data_16).toString('base64');
-                const response = await fetch("/api/upload", {
+                const response = await fetch(`${api_url}/api/upload`, {
                     method: "POST",
                     body: JSON.stringify({
                         id: "test",
