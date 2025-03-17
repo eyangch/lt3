@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 import cors from "cors";
 
 const app = express();
-const PORT = 80;
+const PORT = 3000;
 
 app.use(express.json({ limit: "200mb", extended: true }));
 app.use(cors());
