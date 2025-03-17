@@ -1,0 +1,132 @@
+import { useRef, useState, useCallback, React } from "react";
+import { Buffer } from "buffer";
+
+import CanvasSelector from "./CanvasSelector.tsx";
+
+const Canvas : React.FC = () => {
+    let dragging = useRef(false);
+    let color = useRef("#FFFFFF");
+    let canvasRef = useRef(null);
+    function clearCanvas(){
+        let context = canvasRef.current.getContext('2d', { alpha: false });
+
+        context.fillStyle = "black";
+        context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    const canvasCallbackRef = useCallback((canvas) => {
+        canvasRef.current = canvas;
+        if(canvas === null) return;
+        let context = canvas.getContext('2d', { alpha: false });
+        let radius = 1;
+
+        canvas.width = 96;
+        canvas.height = 64;
+
+        context.fillStyle = "black";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        function getMousePosition(e){
+            var mouseX = e.offsetX * canvas.width / canvas.clientWidth | 0;
+            var mouseY = e.offsetY * canvas.height / canvas.clientHeight | 0;
+            return {x: mouseX, y: mouseY};
+        }
+
+        function putPoint(e){
+            e.preventDefault();
+            e.stopPropagation();
+            if (getMousePosition(e).x !== 0 && dragging.current) {
+                context.strokeStyle = color.current;
+                context.fillStyle = color.current;
+                console.log();
+                context.lineTo(getMousePosition(e).x, getMousePosition(e).y);
+                context.lineWidth = radius * 2;
+                context.stroke();
+                context.beginPath();
+                context.arc(getMousePosition(e).x, getMousePosition(e).y, radius, 0, Math.PI * 2);
+                context.fill();
+                context.beginPath();
+                context.moveTo(getMousePosition(e).x, getMousePosition(e).y);
+            }
+        };
+        
+        var engage = function (e) {
+            dragging.current = true;
+            putPoint(e);
+        };
+        var disengage = async function () {
+            if(dragging.current){
+                dragging.current = false;
+                context.beginPath();
+                const image_data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                let image_data_16 = new Uint8Array(canvas.width * canvas.height * 2);
+                for(let i = 0; i < canvas.width * canvas.height; i++){
+                    let red = image_data[4*i+0] >> 3; // RRRRR (5)
+                    let green = image_data[4*i+1] >> 2; // GGGGGG (6)
+                    let blue = image_data[4*i+2] >> 3; // BBBBB (5)
+                    let pixel = green | (red << 5) | (blue << 11);
+                    let pixel_1 = pixel >> 8;
+                    let pixel_2 = pixel & 0xFF;
+                    image_data_16[2*i] = pixel_1;
+                    image_data_16[2*i+1] = pixel_2;
+                }
+                console.log(image_data_16);
+                let b64 = Buffer.from(image_data_16).toString('base64');
+                const response = await fetch("/api/upload", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        id: "test",
+                        b64: b64,
+                    }),
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+            }
+        };
+        
+        canvas.addEventListener('mousedown', engage);
+        canvas.addEventListener('mousemove', putPoint);
+        canvas.addEventListener('mouseup', disengage);
+        document.addEventListener('mouseup', disengage);
+        canvas.addEventListener('contextmenu', disengage);
+        
+        canvas.addEventListener('touchstart', function (e){
+            var touch = e.touches[0];
+            var mouseEvent = new MouseEvent("mousedown", {
+                clientX: touch.pageX,
+                clientY: touch.pageY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }, false);
+        canvas.addEventListener("touchmove", function (e){
+            e.preventDefault();
+            e.stopPropagation();
+            var touch = e.touches[0];
+            var mouseEvent = new MouseEvent("mousemove", {
+                clientX: touch.pageX,
+                clientY: touch.pageY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }, false);
+        canvas.addEventListener('touchend', disengage, false);
+
+        dragging.current = false;
+    }, []);
+    
+    return (
+        <>
+            <div className="flex flex-row justify-center w-full">
+                <div className="space-y-2 flex flex-col">
+                    <div><CanvasSelector color={color} clearFunction={clearCanvas}/></div>
+                    
+                    <canvas 
+                        className="w-64 sm:w-128 content-center"
+                        ref={canvasCallbackRef}
+                        style={ {imageRendering: "pixelated"} }/>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default Canvas;
