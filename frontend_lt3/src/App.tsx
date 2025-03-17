@@ -3,6 +3,7 @@ import { useState } from 'react';
 import './App.css'
 import Canvas from "./Canvas.tsx";
 import Login from "./Login.tsx";
+import { api_url } from "../config.ts";
 
 function App() {
 
@@ -10,7 +11,7 @@ function App() {
     const [is_auth, setIs_auth] = useState(false);
 
     async function check_auth(id){
-        const response = await fetch(`/api/version?id=${id}`);
+        const response = await fetch(`${api_url}/api/version?id=${id}`);
         const text = await response.text();
         console.log(text);
         if(text === 'forbidden :('){

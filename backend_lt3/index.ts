@@ -1,13 +1,15 @@
 import express from "express";
 import { Buffer } from "node:buffer";
+import cors from "cors";
 
 const app = express();
-const PORT = 3000;
+const PORT = 80;
 
 app.use(express.json({ limit: "200mb", extended: true }));
+app.use(cors());
 
 let drawings = {};
-let versions = {};
+let versions = {"test": 0};
 
 app.get("/api/download", async (req, res) => {
     let id = req.query.id as string;

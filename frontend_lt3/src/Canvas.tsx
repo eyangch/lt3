@@ -27,6 +27,8 @@ const Canvas : React.FC = () => {
         context.fillStyle = "black";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
+        console.log(api_url);
+
         const response = await fetch(`${api_url}/api/download?id=test`, {
             method: "GET",
             headers: {
