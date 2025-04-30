@@ -29,7 +29,7 @@ const Canvas : React.FC = () => {
 
         console.log(api_url);
 
-        const response = await fetch(`${api_url}/api/download?id=test`, {
+        const response = await fetch(`${api_url}/api/download_self?id=${localStorage.getItem("id")}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
@@ -41,13 +41,13 @@ const Canvas : React.FC = () => {
         let fetched_image_data = new Uint8ClampedArray(4*canvas.width*canvas.height);
         console.log(blob_arr);
         for(let i = 0; i < canvas.width * canvas.height; i++){
-            let pixel_1 = blob_arr[2*i];
-            let pixel_2 = blob_arr[2*i+1];
+            let pixel_2 = blob_arr[2*i];
+            let pixel_1 = blob_arr[2*i+1];
             let pixel = (pixel_1 << 8) | pixel_2;
 
-            let red = (pixel >> 6) & 0b11111;
-            let green = pixel & 0b111111;
-            let blue = (pixel >> 11) & 0b11111;
+            let red = (pixel >> 11) & 0b11111;
+            let green = (pixel >> 5) & 0b111111;
+            let blue = pixel & 0b11111;
 
             fetched_image_data[4*i+0] = red << 3 | 0b111;
             fetched_image_data[4*i+1] = green << 2 | 0b11;
@@ -92,21 +92,21 @@ const Canvas : React.FC = () => {
                 const image_data = context.getImageData(0, 0, canvas.width, canvas.height).data;
                 let image_data_16 = new Uint8Array(canvas.width * canvas.height * 2);
                 for(let i = 0; i < canvas.width * canvas.height; i++){
-                    let red = image_data[4*i+0] >> 3; // RRRRR (5)
-                    let green = image_data[4*i+1] >> 2; // GGGGGG (6)
-                    let blue = image_data[4*i+2] >> 3; // BBBBB (5)
-                    let pixel = green | (red << 6) | (blue << 11);
+                    let red = image_data[4*i+0]; // RRRRR (5)
+                    let green = image_data[4*i+1]; // GGGGGG (6)
+                    let blue = image_data[4*i+2]; // BBBBB (5)
+                    let pixel = ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3);
                     let pixel_1 = pixel >> 8;
                     let pixel_2 = pixel & 0xFF;
-                    image_data_16[2*i] = pixel_1;
-                    image_data_16[2*i+1] = pixel_2;
+                    image_data_16[2*i] = pixel_2;
+                    image_data_16[2*i+1] = pixel_1;
                 }
                 console.log(image_data_16);
                 let b64 = Buffer.from(image_data_16).toString('base64');
                 const response = await fetch(`${api_url}/api/upload`, {
                     method: "POST",
                     body: JSON.stringify({
-                        id: "test",
+                        id: localStorage.getItem("id"),
                         b64: b64,
                     }),
                     headers: {
