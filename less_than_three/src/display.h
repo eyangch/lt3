@@ -24,7 +24,13 @@ struct {
     Adafruit_SSD1331 display = Adafruit_SSD1331(&SPI, cs, dc, rst);
     const char *SSID, *status;
     uint16_t buffer[64*96];
+
     bool connected = false;
+    int screen = 0;
+
+    int distance_miles, days_left;
+    char tmp[64];
+
     void begin(){
         display.begin();
     }
@@ -52,14 +58,44 @@ struct {
         display.writePixels(buffer, 64*96);
         display.endWrite();
     }
+    void center_text(const char *buf, int x, int y){
+        int16_t x1, y1;
+        uint16_t w, h;
+        display.getTextBounds(buf, 0, y, &x1, &y1, &w, &h); //calc width of new string
+        display.setCursor(x - w / 2, y);
+        display.print(buf);
+    }
+    void incrementScreen(){
+        screen = (screen + 1) % 4;
+    }
     void redraw(){
         init_screen();
-        if(connected){
-            draw_buffer();
-        }else{
+        if(screen == 0){
             start_screen();
+            display_wifi();
+        }else if(screen == 1){
+            draw_buffer();
+            display.setCursor(0, 0);
+            display.setTextSize(1);
+            display.print("Drawing");
+            if(!connected){
+                display.print("(No WiFi)");
+            }
+        }else if(screen == 2){
+            draw_buffer();
+            display.setTextSize(1);
+            center_text("Pookie is", 48, 0);
+            snprintf(tmp, 64, "%d mi away", distance_miles);
+            center_text(tmp, 48, 8);
+        }else if(screen == 3){
+            display.setTextSize(1);
+            center_text("only", 48, 0);
+            display.setTextSize(4);
+            snprintf(tmp, 64, "%d", days_left);
+            center_text(tmp, 48, 18);
+            display.setTextSize(1);
+            center_text("days left!!", 48, 56);
         }
-        display_wifi();
     }
 } display;
 
