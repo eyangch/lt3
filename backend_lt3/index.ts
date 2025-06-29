@@ -261,7 +261,22 @@ app.get("/api/get_image_ids", async (req, res) => {
     const drawings = await DB.get_drawings_for_user(user.name);
     const image_ids = drawings.map((d) => d.id);
     res.status(200);
-    res.send(JSON.stringify(image_ids));
+    res.send(image_ids);
+});
+
+app.get("/api/get_partner_image_ids", async (req, res) => {
+    const id = req.query.id as string;
+    const user = await DB.get_user(id);
+    if(!user){
+        res.status(403);
+        res.send("forbidden :(");
+        return;
+    }
+    const partner = await DB.get_user(user.partner);
+    const drawings = await DB.get_drawings_for_two(user.name, partner.name);
+    const image_ids = drawings.map((d) => d.id);
+    res.status(200);
+    res.send(image_ids);
 });
 
 app.get("/api/get_image", async (req, res) => {
@@ -294,7 +309,22 @@ app.get("/api/get_image", async (req, res) => {
     res.status(200);
     res.setHeader('Content-Type', 'image/png');
     res.send(image);
-})
+});
+
+app.get("/api/get_image_author_time", async (req, res) => {
+    const id = req.query.id as string;
+    const drawing = await DB.get_drawing(id);
+    if(!drawing){
+        res.status(404);
+        res.send("not found :(");
+        return;
+    }
+    res.status(200);
+    res.send({
+        author: drawing.user,
+        time: drawing.timestamp
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Serving lt3 backend on port ${PORT}`);

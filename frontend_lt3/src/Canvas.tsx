@@ -16,6 +16,7 @@ const Canvas : React.FC<CanvasProps> = ({ id }) => {
 
     useEffect(() => {
         idRef.current = id;
+        console.log("canvas", id);
     }, [id]);
 
     async function clearCanvas(){
@@ -24,6 +25,7 @@ const Canvas : React.FC<CanvasProps> = ({ id }) => {
         context.fillStyle = "black";
         context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
+        console.log("opt clear", idRef.current)
         const response = await fetch(`${api_url}/api/optional_clear`, {
             method: "POST",
             body: JSON.stringify({
@@ -38,6 +40,7 @@ const Canvas : React.FC<CanvasProps> = ({ id }) => {
     async function downloadCanvas(){
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
+        console.log("download", idRef.current);
         const response = await fetch(`${api_url}/api/download_self?id=${idRef.current}`, {
             method: "GET",
             headers: {
@@ -130,6 +133,7 @@ const Canvas : React.FC<CanvasProps> = ({ id }) => {
                 }
                 console.log(image_data_16);
                 let b64 = Buffer.from(image_data_16).toString('base64');
+                console.log("upload", idRef.current);
                 const response = await fetch(`${api_url}/api/upload`, {
                     method: "POST",
                     body: JSON.stringify({
@@ -170,6 +174,10 @@ const Canvas : React.FC<CanvasProps> = ({ id }) => {
         canvas.addEventListener('touchend', disengage, false);
 
         dragging.current = false;
+    }, [id]);
+
+    useEffect(() => {
+        downloadCanvas();
     }, [id]);
     
     return (

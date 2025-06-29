@@ -5,6 +5,8 @@ import Canvas from "./Canvas.tsx";
 import Login from "./Login.tsx";
 import { api_url } from "../config.ts";
 
+import { Link } from "react-router";
+
 function App() {
 
     const [id, setId] = useState(localStorage.getItem("id"));
@@ -15,6 +17,7 @@ function App() {
 
     useEffect(() => {
         idRef.current = id;
+        console.log(id);
     }, [id]);
 
     async function check_auth(id){
@@ -62,7 +65,11 @@ function App() {
             <div className={`${is_auth ? "" : "hidden"}`}>
                 <Canvas id={id} />
                 <div className="mt-2 text-black text-2xl">Read: {read === "true" ? "✅❤️" : read === "false" ? "❌🥺" : ""}</div>
-                <button onClick={log_out} className="mt-2 bg-white text-black">Log Out</button>
+                <div className="my-4">
+                    <Link to={`/gallery/${id}`} className="p-2 rounded-md bg-white text-black text-2xl">Gallery</Link>
+                </div>
+                <button onClick={log_out} className="mt-2 mb-4 bg-white text-black">Log Out</button><br/>
+                
             </div>
             <div className={`${!is_auth ? "" : "hidden"}`}><Login setId={setId} /></div>
         </>

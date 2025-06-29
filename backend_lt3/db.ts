@@ -61,6 +61,11 @@ class DB{
         const res = await this.db_all("SELECT * FROM drawings WHERE user = ? ORDER BY timestamp DESC", [name]);
         return res;
     }
+
+    static async get_drawings_for_two(name1, name2){
+        const res = await this.db_all("SELECT * FROM drawings WHERE user = ? OR user = ? ORDER BY timestamp DESC", [name1, name2]);
+        return res;
+    }
     
     static async get_drawing(id){
         const res = await this.db_get("SELECT * FROM drawings WHERE id = ?", [id]);
