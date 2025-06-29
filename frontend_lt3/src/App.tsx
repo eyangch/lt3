@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 import './App.css'
 import Canvas from "./Canvas.tsx";
@@ -8,7 +8,14 @@ import { api_url } from "../config.ts";
 function App() {
 
     const [id, setId] = useState(localStorage.getItem("id"));
+    const idRef = useRef(id);
+
     const [is_auth, setIs_auth] = useState(false);
+    const [read, setRead] = useState("");
+
+    useEffect(() => {
+        idRef.current = id;
+    }, [id]);
 
     async function check_auth(id){
         const response = await fetch(`${api_url}/api/version?id=${id}`);
@@ -29,6 +36,22 @@ function App() {
 
     check_auth(id);
 
+    async function get_read(){
+        const response = await fetch(`${api_url}/api/read_receipt?id=${idRef.current}`);
+        const json = await response.json();
+        console.log(json);
+        setRead(String(json));
+    }
+
+    useEffect(() => {
+        const intervalId = setInterval(get_read, 1000);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    useEffect(() => {
+        console.log(read);
+    }, [read]);
+
     return (
         <>
             <div className="py-4">
@@ -37,7 +60,8 @@ function App() {
                 </h3>
             </div>
             <div className={`${is_auth ? "" : "hidden"}`}>
-                <Canvas />
+                <Canvas id={id} />
+                <div className="mt-2 text-black text-2xl">Read: {read === "true" ? "✅❤️" : read === "false" ? "❌🥺" : ""}</div>
                 <button onClick={log_out} className="mt-2 bg-white text-black">Log Out</button>
             </div>
             <div className={`${!is_auth ? "" : "hidden"}`}><Login setId={setId} /></div>

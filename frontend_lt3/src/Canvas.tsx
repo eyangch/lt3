@@ -1,35 +1,44 @@
-import { useRef, useState, useCallback, React } from "react";
+import { useRef, useState, useCallback, React, useEffect } from "react";
 import { Buffer } from "buffer";
 import { api_url } from "../config";
 
 import CanvasSelector from "./CanvasSelector.tsx";
 
-const Canvas : React.FC = () => {
+interface CanvasProps {
+    id: string
+}
+
+const Canvas : React.FC<CanvasProps> = ({ id }) => {
     let dragging = useRef(false);
     let color = useRef("#FFFFFF");
     let canvasRef = useRef(null);
-    function clearCanvas(){
+    const idRef = useRef(id);
+
+    useEffect(() => {
+        idRef.current = id;
+    }, [id]);
+
+    async function clearCanvas(){
         let context = canvasRef.current.getContext('2d', { alpha: false });
 
         context.fillStyle = "black";
         context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+        const response = await fetch(`${api_url}/api/optional_clear`, {
+            method: "POST",
+            body: JSON.stringify({
+                id: idRef.current,
+            }),
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
     }
-    const canvasCallbackRef = useCallback(async (canvas) => {
-        canvasRef.current = canvas;
-        if(canvas === null) return;
-        let context = canvas.getContext('2d', { alpha: false });
-        context.imageSmoothingEnabled = false;
-        let radius = 1;
 
-        canvas.width = 96;
-        canvas.height = 64;
-
-        context.fillStyle = "black";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        console.log(api_url);
-
-        const response = await fetch(`${api_url}/api/download_self?id=${localStorage.getItem("id")}`, {
+    async function downloadCanvas(){
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        const response = await fetch(`${api_url}/api/download_self?id=${idRef.current}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
@@ -56,6 +65,24 @@ const Canvas : React.FC = () => {
         }
         let fetched_image_data_2 = new ImageData(fetched_image_data, canvas.width);
         context.putImageData(fetched_image_data_2, 0, 0);
+    }
+
+    const canvasCallbackRef = useCallback(async (canvas) => {
+        canvasRef.current = canvas;
+        if(canvas === null) return;
+        let context = canvas.getContext('2d', { alpha: false });
+        context.imageSmoothingEnabled = false;
+        let radius = 1;
+
+        canvas.width = 96;
+        canvas.height = 64;
+
+        context.fillStyle = "black";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        console.log(api_url);
+
+        downloadCanvas();
 
         function getMousePosition(e){
             var mouseX = e.offsetX * canvas.width / canvas.clientWidth | 0;
@@ -106,7 +133,7 @@ const Canvas : React.FC = () => {
                 const response = await fetch(`${api_url}/api/upload`, {
                     method: "POST",
                     body: JSON.stringify({
-                        id: localStorage.getItem("id"),
+                        id: idRef.current,
                         b64: b64,
                     }),
                     headers: {
@@ -143,7 +170,7 @@ const Canvas : React.FC = () => {
         canvas.addEventListener('touchend', disengage, false);
 
         dragging.current = false;
-    }, []);
+    }, [id]);
     
     return (
         <>

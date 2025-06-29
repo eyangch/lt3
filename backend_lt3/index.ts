@@ -1,7 +1,9 @@
 import express from "express";
 import { Buffer } from "node:buffer";
 import cors from "cors";
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, loadImage, ImageData } from "canvas";
+import DB from "./db.ts";
+import crypto from "node:crypto";
 
 const app = express();
 const PORT = 3000;
@@ -9,82 +11,80 @@ const PORT = 3000;
 app.use(express.json({ limit: "200mb", extended: true }));
 app.use(cors());
 
-let drawings = {
-    "angguo": null,
-    "eyang": null
-};
-let coords = {
-    "angguo": [0, 0],
-    "eyang": [0, 0],
-};
-let end_date = {
-    "test": new Date(2025, 9, 1),
-    "angguo": new Date(2025, 9, 1),
-    "eyang": new Date(2025, 9, 1)
-}
-let versions = {
-    "test": 0,
-    "angguo": 0,
-    "eyang": 0
-};
-
-let partners = {
-    "angguo": "eyang",
-    "eyang": "angguo",
-};
+let versions = {};
 
 app.get("/api/earth.png", async (req, res) => {
     res.status(200);
     res.sendFile("./earth.png", { root: __dirname });
 });
 
-app.get("/api/set_end_date", async (req, res) => {
-    const id = req.query.id as string;
-    const year = req.query.year;
-    const month = req.query.month;
-    const day = req.query.day;
-    if((id in end_date) && year && month && day){
-        end_date[id] = new Date(year, month, day);
-        res.status(200);
-        res.send("OK");
-    }else{
-        res.status(200);
-        res.send("NOT OK");
-    }
-});
-
 app.get("/api/download", async (req, res) => {
     const id = req.query.id as string;
-    if(!(id in partners)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
-    const partner_id = partners[id];
-    res.status(200);
-    res.send(drawings[partner_id]);
+    const partner = await DB.get_user(user.partner);
+    const drawing = await DB.get_drawing(partner.drawing);
+    if(drawing){
+        await DB.set_drawing_read(drawing.id, 1);
+        res.status(200);
+        res.send(drawing.data);
+    }else{
+        res.status(200);
+        res.send("");
+    }
+});
+
+app.get("/api/read_receipt", async (req, res) => {
+    const id = req.query.id as string;
+    const user = await DB.get_user(id);
+    if(!user){
+        res.status(403);
+        res.send("forbidden :(");
+        return;
+    }
+    const drawing = await DB.get_drawing(user.drawing);
+    if(drawing){
+        res.status(200);
+        res.send(!!drawing.read);
+    }else{
+        res.status(200);
+        res.send("");
+    }
 });
 
 app.get("/api/download_self", async (req, res) => {
     const id = req.query.id as string;
-    if(!(id in drawings)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
-    res.status(200);
-    res.send(drawings[id]);
+    const drawing = await DB.get_drawing(user.drawing);
+    if(drawing){
+        res.status(200);
+        res.send(drawing.data);
+    }else{
+        res.status(200);
+        res.send("");
+    }
 });
 
 app.get("/api/download_date", async (req, res) => {
     const id = req.query.id as string;
-    if(!(id in end_date)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
     const now = Date.now();
-    const t_diff = Math.floor((end_date[id] - now) / (1000 * 60 * 60 * 24));
+    const e_date = Date.parse(user.date);
+    const t_diff = Math.floor((e_date - now) / (1000 * 60 * 60 * 24));
     res.status(200);
     res.send(t_diff.toString());
 });
@@ -107,26 +107,23 @@ app.get("/api/get_distance", async (req, res) => {
         return 2 * r * Math.asin(Math.sqrt(a));
     }
     const id = req.query.id as string;
-    if(!(id in versions)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
     const ip = req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
     const cur_coord = await get_coords(ip);
-    coords[id] = cur_coord;
-    // if(id == "angguo"){
-    //     coords[id] = [1, 103];
-    // }
-    const partner_id = partners[id];
-    const partner_coord = coords[partner_id];
+    await DB.set_user_pos(user.name, cur_coord[0], cur_coord[1]);
+    const partner = await DB.get_user(user.partner);
+    const partner_coord = [partner.lat, partner.lon];
     const dist = Math.round(distance(cur_coord[0], cur_coord[1], partner_coord[0], partner_coord[1]));
     res.status(200);
     res.send(dist.toString());
 });
 
 app.get("/api/download_globe", async (req, res) => {
-
     async function cvt_coord_longitude(lon){
         return (Math.floor(lon / 12) + 33) % 30;
     }
@@ -134,17 +131,18 @@ app.get("/api/download_globe", async (req, res) => {
         return Math.sin((lat+8) * Math.PI / 180) * 16;
     }
     const id = req.query.id as string;
-    if(!(id in coords)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
-    const longitude1 = coords[id][1];
-    const latitude1 = coords[id][0];
+    const longitude1 = user.lon;
+    const latitude1 = user.lat;
 
-    const partner_id = partners[id];
-    const longitude2 = coords[partner_id][1];
-    const latitude2 = coords[partner_id][0];
+    const partner = await DB.get_user(user.partner);
+    const longitude2 = partner.lon;
+    const latitude2 = partner.lat;
 
     const canvas = createCanvas(96, 64)
     const ctx = canvas.getContext('2d');
@@ -187,27 +185,116 @@ app.get("/api/download_globe", async (req, res) => {
 
 app.get("/api/version", async (req, res) => {
     const id = req.query.id as string;
-    if(!(id in versions)){
+    const user = await DB.get_user(id);
+    if(!user){
         res.status(403);
         res.send("forbidden :(");
         return;
     }
-    const partner_id = partners[id];
+    const partner = await DB.get_user(user.partner);
+    const partner_id = partner.name;
+    if(!(partner_id in versions)) versions[partner_id] = 0;
     res.status(200);
     res.send(versions[partner_id].toString());
 });
 
+function generate_random_id(){
+    return crypto.randomBytes(16).toString("hex");
+}
+
+app.post("/api/optional_clear", async (req, res) => {
+    const id = req.body.id;
+    const user = await DB.get_user(id);
+    if(!user){
+        res.status(403);
+        res.send("forbidden :(");
+        return;
+    }
+    if(!user.drawing){
+        user.drawing = generate_random_id();
+        await DB.set_user_drawing(id, user.drawing);
+        await DB.add_drawing(user.drawing, user.name);
+    }else{
+        const drawing = await DB.get_drawing(user.drawing);
+        if(drawing.read){
+            user.drawing = generate_random_id();
+            await DB.set_user_drawing(id, user.drawing);
+            await DB.add_drawing(user.drawing, user.name);
+        }
+    }
+    res.status(200);
+    res.send("cool");
+})
+
 app.post("/api/upload", async (req, res) => {
     const id = req.body.id;
     const b64 = req.body.b64;
-    drawings[id] = Buffer.from(b64, "base64");
+    const user = await DB.get_user(id);
+    if(!user){
+        res.status(403);
+        res.send("forbidden :(");
+        return;
+    }
+    if(!user.drawing){
+        user.drawing = generate_random_id();
+        await DB.set_user_drawing(id, user.drawing);
+        await DB.add_drawing(user.drawing, user.name);
+    }
+    await DB.update_drawing(user.drawing, Buffer.from(b64, "base64"));
     if(!(id in versions) || versions[id] > 100000){
         versions[id] = 0;
     }
     versions[id]++;
+    await DB.set_drawing_read(user.drawing, 0);
     res.status(200);
     res.send("cool");
 });
+
+app.get("/api/get_image_ids", async (req, res) => {
+    const id = req.query.id as string;
+    const user = await DB.get_user(id);
+    if(!user){
+        res.status(403);
+        res.send("forbidden :(");
+        return;
+    }
+    const drawings = await DB.get_drawings_for_user(user.name);
+    const image_ids = drawings.map((d) => d.id);
+    res.status(200);
+    res.send(JSON.stringify(image_ids));
+});
+
+app.get("/api/get_image", async (req, res) => {
+    const id = req.query.id as string;
+    const drawing = await DB.get_drawing(id);
+    if(!drawing){
+        res.status(404);
+        res.send("not found :(");
+        return;
+    }
+    const canvas = createCanvas(96, 64);
+    const ctx = canvas.getContext('2d');
+    const image_data = new Uint8Array(drawing.data);
+    const fetched_image_data = new Uint8ClampedArray(4*canvas.width*canvas.height);
+    for(let i = 0; i < image_data.length; i++){
+        let pixel_2 = image_data[2*i];
+        let pixel_1 = image_data[2*i+1];
+        let pixel = (pixel_1 << 8) | pixel_2;
+        let red = (pixel >> 11) & 0b11111;
+        let green = (pixel >> 5) & 0b111111;
+        let blue = pixel & 0b11111;
+
+        fetched_image_data[4*i+0] = red << 3 | 0b111;
+        fetched_image_data[4*i+1] = green << 2 | 0b11;
+        fetched_image_data[4*i+2] = blue << 3 | 0b111;
+        fetched_image_data[4*i+3] = 255;
+    }
+    ctx.putImageData(new ImageData(fetched_image_data, canvas.width), 0, 0);
+    const image = canvas.toBuffer("image/png");
+    res.status(200);
+    res.setHeader('Content-Type', 'image/png');
+    res.send(image);
+})
 
 app.listen(PORT, () => {
     console.log(`Serving lt3 backend on port ${PORT}`);
