@@ -39,7 +39,7 @@ class DB{
     }
 
     static async test(){
-        await this.db_run("INSERT INTO users (name, lat, lon, drawing, partner, date) VALUES (?, ?, ?, ?, ?, ?)", ["angguo", 0, 0, "", "eyang", (new Date(2025, 7, 15)).toString()]);
+        await this.db_run("INSERT INTO users (name, lat, lon, drawing, partner, date) VALUES (?, ?, ?, ?, ?, ?)", ["test1", 0, 0, "", "test2", (new Date(2025, 7, 15)).toString()]);
         const res = await this.db_all("SELECT * FROM users", []);
         console.log(res);
     }
