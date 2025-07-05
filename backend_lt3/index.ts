@@ -273,7 +273,7 @@ app.get("/api/get_partner_image_ids", async (req, res) => {
         return;
     }
     const partner = await DB.get_user(user.partner);
-    const drawings = await DB.get_drawings_for_two(user.name, partner.name);
+    const drawings = await DB.get_drawings_for_two_read(user.name, partner.name);
     const image_ids = drawings.map((d) => d.id);
     res.status(200);
     res.send(image_ids);
