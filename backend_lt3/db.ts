@@ -62,8 +62,8 @@ class DB{
         return res;
     }
 
-    static async get_drawings_for_two(name1, name2){
-        const res = await this.db_all("SELECT * FROM drawings WHERE user = ? OR user = ? ORDER BY timestamp DESC", [name1, name2]);
+    static async get_drawings_for_two_read(name1, name2){
+        const res = await this.db_all("SELECT * FROM drawings WHERE (user = ? OR user = ?) AND read = 1 ORDER BY timestamp DESC", [name1, name2]);
         return res;
     }
     
